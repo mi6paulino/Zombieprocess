@@ -1,0 +1,192 @@
+
+
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/Counters.sol";
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+
+contract ZombieBattleArena is Ownable {
+    using SafeMath for uint256;
+    using Counters for Counters.Counter;
+    Counters.Counter private _zombieIdCounter;
+
+    enum ZombieType { Warrior, Mage, Archer }
+    enum BattleState { Idle, InBattle, Cooldown }
+
+    struct Zombie {
+        uint256 id;
+        string name;
+        ZombieType zombieType;
+        uint256 level;
+        uint256 health;
+        uint256 attack;
+        uint256 defense;
+        uint256 lastBattleTime;
+        BattleState state;
+    }
+
+    struct Battle {
+        uint256 battleId;
+        uint256 zombie1Id;
+        uint256 zombie2Id;
+        uint256 startTime;
+        uint256 endTime;
+        bool isActive;
+    }
+
+    mapping(uint256 => Zombie) public zombies;
+    mapping(uint256 => Battle) public battles;
+    mapping(address => uint256[]) public ownerZombies;
+    mapping(uint256 => address) public zombieToOwner;
+
+    uint256 public battleCooldown = 1 days;
+    uint256 public battleReward = 0.01 ether;
+
+    event ZombieCreated(uint256 indexed zombieId, string name, ZombieType zombieType);
+    event BattleStarted(uint256 indexed battleId, uint256 zombie1Id, uint256 zombie2Id);
+    event BattleEnded(uint256 indexed battleId, uint256 winnerId, uint256 loserId);
+    event ZombieLeveledUp(uint256 indexed zombieId, uint256 newLevel);
+
+    constructor() {
+        _zombieIdCounter.reset();
+    }
+
+    function createZombie(string memory _name, ZombieType _zombieType) public {
+        require(bytes(_name).length > 0, "Zombie name cannot be empty");
+
+        _zombieIdCounter.increment();
+        uint256 zombieId = _zombieIdCounter.current();
+
+        Zombie memory newZombie = Zombie({
+            id: zombieId,
+            name: _name,
+            zombieType: _zombieType,
+            level: 1,
+            health: 100,
+            attack: calculateInitialAttack(_zombieType),
+            defense: calculateInitialDefense(_zombieType),
+            lastBattleTime: 0,
+            state: BattleState.Idle
+        });
+
+        zombies[zombieId] = newZombie;
+        ownerZombies[msg.sender].push(zombieId);
+        zombieToOwner[zombieId] = msg.sender;
+
+        emit ZombieCreated(zombieId, _name, _zombieType);
+    }
+
+    function calculateInitialAttack(ZombieType _zombieType) private view returns (uint256) {
+        if (_zombieType == ZombieType.Warrior) {
+            return 20;
+        } else if (_zombieType == ZombieType.Mage) {
+            return 15;
+        } else if (_zombieType == ZombieType.Archer) {
+            return 18;
+        }
+        revert("Invalid zombie type");
+    }
+
+    function calculateInitialDefense(ZombieType _zombieType) private view returns (uint256) {
+        if (_zombieType == ZombieType.Warrior) {
+            return 15;
+        } else if (_zombieType == ZombieType.Mage) {
+            return 10;
+        } else if (_zombieType == ZombieType.Archer) {
+            return 12;
+        }
+        revert("Invalid zombie type");
+    }
+
+    function startBattle(uint256 _zombie1Id, uint256 _zombie2Id) public {
+        require(_zombie1Id != _zombie2Id, "Cannot battle with the same zombie");
+        require(zombieToOwner[_zombie1Id] == msg.sender || zombieToOwner[_zombie2Id] == msg.sender, "You must own at least one of the zombies");
+
+        Zombie storage zombie1 = zombies[_zombie1Id];
+        Zombie storage zombie2 = zombies[_zombie2Id];
+
+        require(zombie1.state == BattleState.Idle, "Zombie 1 is not ready for battle");
+        require(zombie2.state == BattleState.Idle, "Zombie 2 is not ready for battle");
+        require(zombie1.lastBattleTime.add(battleCooldown) <= block.timestamp, "Zombie 1 is still in cooldown");
+        require(zombie2.lastBattleTime.add(battleCooldown) <= block.timestamp, "Zombie 2 is still in cooldown");
+
+        uint256 battleId = uint256(keccak256(abi.encodePacked(_zombie1Id, _zombie2Id, block.timestamp)));
+
+        battles[battleId] = Battle({
+            battleId: battleId,
+            zombie1Id: _zombie1Id,
+            zombie2Id: _zombie2Id,
+            startTime: block.timestamp,
+            endTime: block.timestamp.add(1 hours),
+            isActive: true
+        });
+
+        zombie1.state = BattleState.InBattle;
+        zombie2.state = BattleState.InBattle;
+
+        emit BattleStarted(battleId, _zombie1Id, _zombie2Id);
+    }
+
+    function endBattle(uint256 _battleId) public {
+        Battle storage battle = battles[_battleId];
+        require(battle.isActive, "Battle is not active");
+        require(block.timestamp >= battle.endTime, "Battle has not ended yet");
+
+        Zombie storage zombie1 = zombies[battle.zombie1Id];
+        Zombie storage zombie2 = zombies[battle.zombie2Id];
+
+        uint256 damage1 = zombie1.attack.sub(zombie2.defense);
+        uint256 damage2 = zombie2.attack.sub(zombie1.defense);
+
+        if (damage1 > zombie2.health) {
+            zombie1.health = zombie1.health.add(damage2);
+            zombie1.level = zombie1.level.add(1);
+            zombie1.wins = zombie1.wins.add(1);
+            zombie2.losses = zombie2.losses.add(1);
+            zombie2.health = 100;
+            zombie1.lastBattleTime = block.timestamp;
+            zombie2.lastBattleTime = block.timestamp;
+            zombie1.state = BattleState.Cooldown;
+            zombie2.state = BattleState.Cooldown;
+            payable(owner).transfer(battleReward);
+            emit BattleEnded(_battleId, battle.zombie1Id, battle.zombie2Id);
+            emit ZombieLeveledUp(battle.zombie1Id, zombie1.level);
+        } else if (damage2 > zombie1.health) {
+            zombie2.health = zombie2.health.add(damage1);
+            zombie2.level = zombie2.level.add(1);
+            zombie2.wins = zombie2.wins.add(1);
+            zombie1.losses = zombie1.losses.add(1);
+            zombie1.health = 100;
+            zombie1.lastBattleTime = block.timestamp;
+            zombie2.lastBattleTime = block.timestamp;
+            zombie1.state = BattleState.Cooldown;
+            zombie2.state = BattleState.Cooldown;
+            payable(owner).transfer(battleReward);
+            emit BattleEnded(_battleId, battle.zombie2Id, battle.zombie1Id);
+            emit ZombieLeveledUp(battle.zombie2Id, zombie2.level);
+        } else {
+            zombie1.health = zombie1.health.sub(damage2);
+            zombie2.health = zombie2.health.sub(damage1);
+            zombie1.lastBattleTime = block.timestamp;
+            zombie2.lastBattleTime = block.timestamp;
+            zombie1.state = BattleState.Cooldown;
+            zombie2.state = BattleState.Cooldown;
+            emit BattleEnded(_battleId, 0, 0);
+        }
+
+        battle.isActive = false;
+    }
+
+    function getZombie(uint256 _zombieId) public view returns (Zombie memory) {
+        return zombies[_zombieId];
+    }
+
+    function getBattle(uint256 _battleId) public view returns (Battle memory) {
+        return battles[_battleId];
+    }
+
+    function getZombiesByOwner(address _owner) public view returns (uint256[] memory) {
+        return ownerZombies[_owner];
+    }
